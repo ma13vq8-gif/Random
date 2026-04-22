@@ -3,12 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <link rel="stylesheet" href="style.css">
-    <title>FLAPPY BLADE</title>
+    <title>SHING_MODULAR // ma13vq8-gif</title>
+    <style>
+        body, html { margin: 0; overflow: hidden; background: #000; touch-action: none; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 5%; width: 100%; text-align: center; 
+              color: white; font-family: monospace; font-size: 2rem; pointer-events: none; }
+    </style>
 </head>
 <body>
     <div id="ui">SCORE: <span id="score">0</span></div>
     <canvas id="gameCanvas"></canvas>
-    <script src="game.js"></script>
+
+    <script src="features.js"></script>
+    
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let gameData = {};
+        let sword = { x: 100, y: 300, vy: 0, angle: 0 };
+        let obstacles = [];
+
+        // LOAD EXTERNAL JSON
+        async function loadGame() {
+            try {
+                const response = await fetch('config.json');
+                gameData = await response.json();
+                start();
+            } catch (e) {
+                console.error("Run this on a server/GitHub Pages to load JSON!");
+                // Fallback if JSON fails
+                gameData = { settings: {gravity: 0.4, jump: -7.5, speed: 5} };
+                start();
+            }
+        }
+
+        function start() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            loop();
+        }
+
+        function loop() {
+            // Background
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Update Physics using external settings
+            sword.vy += gameData.settings.gravity;
+            sword.y += sword.vy;
+            sword.angle = Math.atan2(sword.vy, 10);
+
+            // Use features.js ability update
+            if (typeof Abilities !== 'undefined') Abilities.update(ctx, canvas);
+
+            // Draw Sword (Using skin from JSON)
+            ctx.save();
+            ctx.translate(sword.x, sword.y);
+            ctx.rotate(sword.angle);
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = gameData.skins ? gameData.skins[0].glow : "#0ff";
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, -3, 60, 6);
+            ctx.restore();
+
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            sword.vy = gameData.settings.jump;
+            if (typeof Abilities !== 'undefined') Abilities.triggerDash(sword);
+        });
+
+        loadGame();
+    </script>
 </body>
 </html>
