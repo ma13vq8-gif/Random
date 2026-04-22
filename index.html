@@ -1,83 +1,148 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SHING // ma13vq8-gif</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
-        #ui { position: absolute; top: 20px; width: 100%; text-align: center; 
-              color: #00ffcc; font-family: monospace; font-size: 3rem; pointer-events: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; touch-action: none; font-family: 'Courier New', monospace; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 5%; width: 100%; text-align: center; color: #0ff; font-size: 3.5rem; font-weight: bold; text-shadow: 0 0 15px #0ff; pointer-events: none; user-select: none; }
+        #msg { position: absolute; top: 45%; width: 100%; text-align: center; color: #f0f; font-size: 1.5rem; display: none; text-shadow: 0 0 10px #f0f; }
     </style>
 </head>
 <body>
+
     <div id="ui">0</div>
+    <div id="msg">SYSTEM FAILURE<br>TAP TO REBOOT</div>
     <canvas id="gameCanvas"></canvas>
 
-    <script src="features.js"></script>
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('ui');
-        let gameConfig = {};
-        let sword = { x: 80, y: 0, vy: 0, angle: 0 };
+        // --- GAME DATA ---
+        const cfg = {
+            gravity: 0.45,
+            jump: -8.5,
+            speed: 5,
+            gap: 210,
+            pipeW: 70,
+            spawnRate: 80
+        };
+
+        const cvs = document.getElementById('gameCanvas');
+        const ctx = cvs.getContext('2d');
+        const scoreUI = document.getElementById('ui');
+        const msgUI = document.getElementById('msg');
+
+        let sword = { x: 70, y: 0, vy: 0, ang: 0 };
+        let pipes = [];
         let score = 0;
-        let isDead = false;
+        let dead = false;
         let frame = 0;
 
-        async function init() {
-            const res = await fetch('config.json');
-            gameConfig = await res.json();
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            sword.y = canvas.height / 2;
-            loop();
+        function init() {
+            cvs.width = window.innerWidth;
+            cvs.height = window.innerHeight;
+            sword.y = cvs.height / 2;
+            run();
         }
 
-        function loop() {
-            ctx.fillStyle = '#050505';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        function run() {
+            update();
+            draw();
+            requestAnimationFrame(run);
+        }
 
-            if (!isDead) {
-                // Physics
-                sword.vy += gameConfig.settings.gravity;
-                sword.y += sword.vy;
-                sword.angle = Math.atan2(sword.vy, 12);
+        function update() {
+            if (dead) return;
 
-                // Pipe Logic from features.js
-                if (frame % 90 === 0) PipeManager.spawn(canvas, gameConfig);
-                isDead = PipeManager.update(canvas, gameConfig, sword, () => {
-                    score++;
-                    scoreEl.innerText = score;
-                });
-            } else {
-                ctx.fillStyle = "white";
-                ctx.fillText("CRITICAL FAILURE - TAP TO REBOOT", canvas.width/2 - 100, canvas.height/2);
+            // Physics
+            sword.vy += cfg.gravity;
+            sword.y += sword.vy;
+            sword.ang = Math.atan2(sword.vy, 15);
+
+            // Piper Spawning
+            if (frame % cfg.spawnRate === 0) {
+                let range = cvs.height - cfg.gap - 100;
+                let top = Math.random() * range + 50;
+                pipes.push({ x: cvs.width, t: top, b: top + cfg.gap, passed: false });
             }
 
-            PipeManager.draw(ctx, gameConfig, canvas);
+            // Piper Logic
+            pipes.forEach(p => {
+                p.x -= cfg.speed;
+
+                // Collision
+                if (sword.x + 45 > p.x && sword.x < p.x + cfg.pipeW) {
+                    if (sword.y < p.t || sword.y > p.b) die();
+                }
+
+                // Score
+                if (!p.passed && p.x < sword.x) {
+                    p.passed = true;
+                    score++;
+                    scoreUI.innerText = score;
+                }
+            });
+
+            if (pipes.length > 0 && pipes[0].x < -100) pipes.shift();
+            if (sword.y > cvs.height || sword.y < 0) die();
+            frame++;
+        }
+
+        function draw() {
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, cvs.width, cvs.height);
+
+            // Draw Pipers
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#f0f';
+            ctx.fillStyle = '#f0f';
+            pipes.forEach(p => {
+                ctx.fillRect(p.x, 0, cfg.pipeW, p.t);
+                ctx.fillRect(p.x, p.b, cfg.pipeW, cvs.height);
+            });
 
             // Draw Sword
             ctx.save();
             ctx.translate(sword.x, sword.y);
-            ctx.rotate(sword.angle);
+            ctx.rotate(sword.ang);
             ctx.shadowBlur = 20;
-            ctx.shadowColor = "#00ffcc";
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, -3, 60, 6);
+            ctx.shadowColor = '#0ff';
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, -4, 60, 8); // Blade
+            ctx.fillStyle = '#0ff';
+            ctx.fillRect(10, -15, 6, 30); // Guard
             ctx.restore();
-
-            frame++;
-            requestAnimationFrame(loop);
+            ctx.shadowBlur = 0;
         }
 
-        window.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (isDead) {
-                isDead = false; score = 0; scoreEl.innerText = 0;
-                sword.y = canvas.height/2; sword.vy = 0;
-                PipeManager.pipes = [];
-            } else {
-                sword.vy = gameConfig.settings.jump;
-            }
+        function die() {
+            dead = true;
+            msgUI.style.display = 'block';
+        }
+
+        function reset() {
+            score = 0;
+            pipes = [];
+            sword.y = cvs.height / 2;
+            sword.vy = 0;
+            frame = 0;
+            dead = false;
+            scoreUI.innerText = '0';
+            msgUI.style.display = 'none';
+        }
+
+        function input(e) {
+            if(e) e.preventDefault();
+            if (dead) reset();
+            else sword.vy = cfg.jump;
+        }
+
+        window.addEventListener('touchstart', input, {passive: false});
+        window.addEventListener('mousedown', (e) => { if(e.button === 0) input(); });
+        window.addEventListener('resize', () => {
+            cvs.width = window.innerWidth;
+            cvs.height = window.innerHeight;
         });
 
         init();
