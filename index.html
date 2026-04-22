@@ -3,29 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SHING // ma13vq8-gif</title>
+    <title>SLITHER_BLADE</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; touch-action: none; font-family: 'Courier New', monospace; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; touch-action: none; font-family: 'Courier New', monospace; }
         canvas { display: block; }
-        #ui { position: absolute; top: 5%; width: 100%; text-align: center; color: #0ff; font-size: 3.5rem; font-weight: bold; text-shadow: 0 0 15px #0ff; pointer-events: none; user-select: none; }
-        #msg { position: absolute; top: 45%; width: 100%; text-align: center; color: #f0f; font-size: 1.5rem; display: none; text-shadow: 0 0 10px #f0f; }
+        #ui { position: absolute; top: 5%; width: 100%; text-align: center; color: #4CAF50; font-size: 3rem; font-weight: bold; text-shadow: 0 0 15px #2e7d32; pointer-events: none; user-select: none; }
+        #msg { position: absolute; top: 45%; width: 100%; text-align: center; color: #fff; font-size: 1.2rem; display: none; background: rgba(0,0,0,0.8); padding: 20px 0; }
     </style>
 </head>
 <body>
 
     <div id="ui">0</div>
-    <div id="msg">SYSTEM FAILURE<br>TAP TO REBOOT</div>
+    <div id="msg">SNAKE DEAD<br>TAP TO RESPAWN</div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- GAME DATA ---
         const cfg = {
-            gravity: 0.45,
-            jump: -8.5,
-            speed: 5,
-            gap: 210,
-            pipeW: 70,
-            spawnRate: 80
+            gravity: 0.4,
+            jump: -7.5,
+            speed: 4,
+            gap: 220,
+            pipeW: 60,
+            spawnRate: 100,
+            snakeColor: "#4CAF50",
+            headColor: "#81C784"
         };
 
         const cvs = document.getElementById('gameCanvas');
@@ -33,7 +34,8 @@
         const scoreUI = document.getElementById('ui');
         const msgUI = document.getElementById('msg');
 
-        let sword = { x: 70, y: 0, vy: 0, ang: 0 };
+        let sword = { x: 80, y: 0, vy: 0, ang: 0, history: [] };
+        let segments = 3; // Starting length
         let pipes = [];
         let score = 0;
         let dead = false;
@@ -58,28 +60,30 @@
             // Physics
             sword.vy += cfg.gravity;
             sword.y += sword.vy;
-            sword.ang = Math.atan2(sword.vy, 15);
+            sword.ang = Math.atan2(sword.vy, 12);
 
-            // Piper Spawning
+            // Snake Path History (For tail segments)
+            sword.history.unshift({x: sword.x, y: sword.y, ang: sword.ang});
+            if (sword.history.length > 100) sword.history.pop();
+
+            // Spawn Pipers
             if (frame % cfg.spawnRate === 0) {
-                let range = cvs.height - cfg.gap - 100;
-                let top = Math.random() * range + 50;
+                let top = Math.random() * (cvs.height - cfg.gap - 100) + 50;
                 pipes.push({ x: cvs.width, t: top, b: top + cfg.gap, passed: false });
             }
 
-            // Piper Logic
+            // Pipe Logic
             pipes.forEach(p => {
                 p.x -= cfg.speed;
-
-                // Collision
-                if (sword.x + 45 > p.x && sword.x < p.x + cfg.pipeW) {
+                // Collision with Head
+                if (sword.x + 30 > p.x && sword.x < p.x + cfg.pipeW) {
                     if (sword.y < p.t || sword.y > p.b) die();
                 }
-
-                // Score
+                // Scoring & Growth
                 if (!p.passed && p.x < sword.x) {
                     p.passed = true;
                     score++;
+                    segments += 2; // SNAKE GROWS
                     scoreUI.innerText = score;
                 }
             });
@@ -90,28 +94,48 @@
         }
 
         function draw() {
-            ctx.fillStyle = '#050505';
+            // Checkered Snake Background
+            ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, cvs.width, cvs.height);
+            
+            // Draw Tail Segments
+            for (let i = 0; i < segments; i++) {
+                let index = i * 5; 
+                if (sword.history[index]) {
+                    let pos = sword.history[index];
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.rotate(pos.ang);
+                    ctx.fillStyle = cfg.snakeColor;
+                    ctx.globalAlpha = 1 - (i / (segments + 5));
+                    // Segment looks like a blade piece
+                    ctx.fillRect(-10, -4, 20, 8);
+                    ctx.restore();
+                }
+            }
+            ctx.globalAlpha = 1;
 
-            // Draw Pipers
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#f0f';
-            ctx.fillStyle = '#f0f';
+            // Draw Obstacles (Classic Snake Green Blocks)
+            ctx.fillStyle = "#2e7d32";
+            ctx.strokeStyle = "#4CAF50";
+            ctx.lineWidth = 4;
             pipes.forEach(p => {
                 ctx.fillRect(p.x, 0, cfg.pipeW, p.t);
+                ctx.strokeRect(p.x, 0, cfg.pipeW, p.t);
                 ctx.fillRect(p.x, p.b, cfg.pipeW, cvs.height);
+                ctx.strokeRect(p.x, p.b, cfg.pipeW, cvs.height);
             });
 
-            // Draw Sword
+            // Draw Head (Sword Hilt)
             ctx.save();
             ctx.translate(sword.x, sword.y);
             ctx.rotate(sword.ang);
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#0ff';
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(0, -4, 60, 8); // Blade
-            ctx.fillStyle = '#0ff';
-            ctx.fillRect(10, -15, 6, 30); // Guard
+            ctx.fillStyle = cfg.headColor;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = cfg.headColor;
+            ctx.fillRect(0, -5, 40, 10); // Main Blade head
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(5, -15, 5, 30); // Crossguard
             ctx.restore();
             ctx.shadowBlur = 0;
         }
@@ -123,9 +147,11 @@
 
         function reset() {
             score = 0;
+            segments = 3;
             pipes = [];
             sword.y = cvs.height / 2;
             sword.vy = 0;
+            sword.history = [];
             frame = 0;
             dead = false;
             scoreUI.innerText = '0';
