@@ -1,14 +1,14 @@
 {
-  "settings": {
-    "gravity": 0.4,
-    "jump": -7.5,
-    "speed": 4.5,
-    "pipeWidth": 60,
-    "pipeGap": 220
+  "physics": {
+    "gravity": 0.25,
+    "jumpForce": -5.8,
+    "baseSpeed": 4.0,
+    "accelerationPerPoint": 0.2,
+    "maxSpeedLimit": 12.0
   },
-  "visuals": {
-    "pipeColor": "#00ffcc",
-    "pipeGlow": "#0088ff",
-    "swordColor": "#ffffff"
+  "dimensions": {
+    "pipeGap": 200,
+    "pipeWidth": 70,
+    "spawnDistance": 350
   }
 }
