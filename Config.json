@@ -1,0 +1,17 @@
+{
+  "physics": {
+    "gravity": 0.4,
+    "jumpForce": -8,
+    "maxFallSpeed": 10,
+    "rotationScale": 0.15
+  },
+  "design": {
+    "swordColor": "#FFFFFF",
+    "glowColor": "#00F2FF",
+    "obstacleColor": "#FF0055"
+  },
+  "gameplay": {
+    "gapSize": 220,
+    "pipeSpeed": 4
+  }
+}
