@@ -1,14 +1,20 @@
 {
   "physics": {
-    "gravity": 0.25,
-    "jumpForce": -5.8,
-    "baseSpeed": 4.0,
-    "accelerationPerPoint": 0.2,
-    "maxSpeedLimit": 12.0
+    "gravity": 0.28,
+    "jumpForce": -6.2,
+    "baseSpeed": 4.5,
+    "accel": 0.25,
+    "maxSpeed": 15.0,
+    "terminalVelocity": 12.0
   },
-  "dimensions": {
-    "pipeGap": 200,
-    "pipeWidth": 70,
-    "spawnDistance": 350
+  "visuals": {
+    "shakeIntensity": 5,
+    "trailLength": 15,
+    "particleCount": 12
+  },
+  "gameplay": {
+    "pipeGap": 180,
+    "pipeWidth": 80,
+    "spawnDist": 400
   }
 }
