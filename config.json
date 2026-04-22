@@ -1,1 +1,14 @@
-
+{
+  "settings": {
+    "gravity": 0.4,
+    "jump": -7.5,
+    "speed": 4.5,
+    "pipeWidth": 60,
+    "pipeGap": 220
+  },
+  "visuals": {
+    "pipeColor": "#00ffcc",
+    "pipeGlow": "#0088ff",
+    "swordColor": "#ffffff"
+  }
+}
