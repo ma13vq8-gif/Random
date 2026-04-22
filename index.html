@@ -3,94 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FLAPPY BLADE // MULTI-THEME</title>
+    <title>FLAPPY BLADE // JSON ACCEL</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; touch-action: none; font-family: 'Courier New', monospace; transition: background 0.5s; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; touch-action: none; background: #000; font-family: 'Courier New', monospace; }
         canvas { display: block; }
-        #ui { position: absolute; top: 5%; width: 100%; text-align: center; color: white; font-size: 4rem; font-weight: bold; text-shadow: 2px 2px #000; pointer-events: none; user-select: none; z-index: 10; }
-        #msg { position: absolute; top: 40%; width: 100%; text-align: center; color: #fff; font-size: 1.5rem; display: none; text-shadow: 2px 2px #000; background: rgba(0,0,0,0.6); padding: 20px 0; }
-        #theme-tag { position: absolute; bottom: 20px; left: 20px; color: rgba(255,255,255,0.5); font-size: 0.8rem; }
+        #ui { position: absolute; top: 5%; width: 100%; text-align: center; color: #fff; font-size: 3rem; font-weight: bold; text-shadow: 0 0 15px #0ff; pointer-events: none; }
+        #speed-tag { position: absolute; top: 15%; width: 100%; text-align: center; color: #ff0055; font-size: 1rem; }
     </style>
 </head>
 <body>
 
     <div id="ui">0</div>
-    <div id="msg">SHATTERED<br>TAP TO RESPAWN</div>
-    <div id="theme-tag">THEME: CLASSIC</div>
+    <div id="speed-tag">INITIALIZING...</div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- THEME DATA ---
-        const themes = [
-            { name: "CLASSIC SNAKE", bg: "#2e7d32", pipe: "#1b5e20", sword: "#81C784", glow: "#fff" },
-            { name: "CYBERPUNK", bg: "#050505", pipe: "#f0f", sword: "#fff", glow: "#0ff" },
-            { name: "BLOOD MOON", bg: "#2a0000", pipe: "#7f0000", sword: "#ff4444", glow: "#ff0000" },
-            { name: "FROST BITE", bg: "#001a2d", pipe: "#00d4ff", sword: "#fff", glow: "#fff" },
-            { name: "GOLDEN ROYAL", bg: "#3d2b00", pipe: "#ffae00", sword: "#fffb00", glow: "#fff" }
-        ];
-
-        const cfg = {
-            gravity: 0.25, // Classic Flappy weight
-            jump: -5.5,    // Snappy hop
-            speed: 3.5,
-            gap: 190,
-            pipeW: 70,
-            spawnRate: 100
-        };
-
+        let cfg = {}; // Loaded from JSON
         const cvs = document.getElementById('gameCanvas');
         const ctx = cvs.getContext('2d');
         const scoreUI = document.getElementById('ui');
-        const msgUI = document.getElementById('msg');
-        const tagUI = document.getElementById('theme-tag');
+        const speedUI = document.getElementById('speed-tag');
 
-        let currentThemeIndex = 0;
         let sword = { x: 70, y: 0, vy: 0, ang: 0 };
         let pipes = [];
         let score = 0;
         let dead = false;
-        let frame = 0;
+        let currentSpeed = 0;
+
+        // FETCH JSON CONFIG
+        async function loadConfig() {
+            try {
+                const response = await fetch('config.json');
+                const data = await response.json();
+                cfg = data;
+                currentSpeed = cfg.physics.baseSpeed;
+                init();
+            } catch (e) {
+                console.error("JSON Load Failed. Ensure you are using a local server or GitHub Pages.");
+                // Fallback config so it doesn't break
+                cfg = { physics: { gravity: 0.25, jumpForce: -5.8, baseSpeed: 4.0, accelerationPerPoint: 0.2 }, dimensions: { pipeGap: 200, pipeWidth: 70, spawnDistance: 350 }};
+                currentSpeed = cfg.physics.baseSpeed;
+                init();
+            }
+        }
 
         function init() {
             cvs.width = window.innerWidth;
             cvs.height = window.innerHeight;
             sword.y = cvs.height / 2;
-            applyTheme();
             run();
-        }
-
-        function applyTheme() {
-            const t = themes[currentThemeIndex];
-            document.body.style.backgroundColor = t.bg;
-            tagUI.innerText = "THEME: " + t.name;
-        }
-
-        function run() {
-            update();
-            draw();
-            requestAnimationFrame(run);
         }
 
         function update() {
             if (dead) return;
 
-            sword.vy += cfg.gravity;
-            sword.y += sword.vy;
-            sword.ang = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, sword.vy * 0.1));
+            // THE ACCELERATION LOGIC
+            currentSpeed = cfg.physics.baseSpeed + (score * cfg.physics.accelerationPerPoint);
+            speedUI.innerText = `VELOCITY: ${currentSpeed.toFixed(1)}`;
 
-            if (frame % cfg.spawnRate === 0) {
-                let range = cvs.height - cfg.gap - 100;
-                let top = Math.random() * range + 50;
-                pipes.push({ x: cvs.width, t: top, b: top + cfg.gap, passed: false });
+            sword.vy += cfg.physics.gravity;
+            sword.y += sword.vy;
+            sword.ang = Math.min(Math.PI/4, Math.max(-Math.PI/4, sword.vy * 0.1));
+
+            // Spawning
+            if (pipes.length === 0 || pipes[pipes.length - 1].x < cvs.width - cfg.dimensions.spawnDistance) {
+                let range = cvs.height - cfg.dimensions.pipeGap - 120;
+                let top = Math.random() * range + 60;
+                pipes.push({ x: cvs.width, t: top, b: top + cfg.dimensions.pipeGap, passed: false });
             }
 
             pipes.forEach(p => {
-                p.x -= cfg.speed;
-                // Collision
-                if (sword.x + 40 > p.x && sword.x < p.x + cfg.pipeW) {
-                    if (sword.y < p.t || sword.y > p.b) die();
+                p.x -= currentSpeed;
+                if (sword.x + 40 > p.x && sword.x < p.x + cfg.dimensions.pipeWidth) {
+                    if (sword.y < p.t || sword.y > p.b) dead = true;
                 }
-                // Score
                 if (!p.passed && p.x < sword.x) {
                     p.passed = true;
                     score++;
@@ -99,74 +85,44 @@
             });
 
             if (pipes.length > 0 && pipes[0].x < -100) pipes.shift();
-            if (sword.y > cvs.height || sword.y < 0) die();
-            frame++;
+            if (sword.y > cvs.height || sword.y < 0) dead = true;
         }
 
         function draw() {
-            const t = themes[currentThemeIndex];
-            ctx.fillStyle = t.bg;
+            ctx.fillStyle = '#050505';
             ctx.fillRect(0, 0, cvs.width, cvs.height);
 
             // Draw Pipes
-            ctx.fillStyle = t.pipe;
-            ctx.strokeStyle = t.glow;
-            ctx.lineWidth = 4;
+            ctx.fillStyle = '#ff0055';
             pipes.forEach(p => {
-                ctx.fillRect(p.x, 0, cfg.pipeW, p.t);
-                ctx.strokeRect(p.x, 0, cfg.pipeW, p.t);
-                ctx.fillRect(p.x, p.b, cfg.pipeW, cvs.height);
-                ctx.strokeRect(p.x, p.b, cfg.pipeW, cvs.height);
+                ctx.fillRect(p.x, 0, cfg.dimensions.pipeWidth, p.t);
+                ctx.fillRect(p.x, p.b, cfg.dimensions.pipeWidth, cvs.height);
             });
 
             // Draw Sword
             ctx.save();
             ctx.translate(sword.x, sword.y);
             ctx.rotate(sword.ang);
+            ctx.fillStyle = '#fff';
             ctx.shadowBlur = 15;
-            ctx.shadowColor = t.glow;
-            ctx.fillStyle = t.sword;
-            ctx.fillRect(0, -4, 55, 8); // Blade
-            ctx.fillStyle = t.glow;
-            ctx.fillRect(8, -12, 6, 24); // Hilt
+            ctx.shadowColor = '#0ff';
+            ctx.fillRect(0, -4, 55, 8); 
             ctx.restore();
-            ctx.shadowBlur = 0;
         }
 
-        function die() {
-            dead = true;
-            msgUI.style.display = 'block';
+        function run() {
+            update();
+            draw();
+            requestAnimationFrame(run);
         }
 
-        function reset() {
-            // Cycle Theme on death
-            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-            applyTheme();
-
-            score = 0;
-            pipes = [];
-            sword.y = cvs.height / 2;
-            sword.vy = 0;
-            frame = 0;
-            dead = false;
-            scoreUI.innerText = '0';
-            msgUI.style.display = 'none';
-        }
-
-        function input(e) {
-            if(e) e.preventDefault();
-            if (dead) reset();
-            else sword.vy = cfg.jump;
-        }
-
-        window.addEventListener('touchstart', input, {passive: false});
-        window.addEventListener('mousedown', (e) => { if(e.button === 0) input(); });
-        window.addEventListener('resize', () => {
-            cvs.width = window.innerWidth;
-            cvs.height = window.innerHeight;
+        window.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (dead) location.reload();
+            else sword.vy = cfg.physics.jumpForce;
         });
 
-        init();
+        loadConfig();
     </script>
 </body>
 </html>
