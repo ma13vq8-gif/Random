@@ -1,82 +1,86 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SHING_MODULAR // ma13vq8-gif</title>
     <style>
-        body, html { margin: 0; overflow: hidden; background: #000; touch-action: none; }
-        canvas { display: block; }
-        #ui { position: absolute; top: 5%; width: 100%; text-align: center; 
-              color: white; font-family: monospace; font-size: 2rem; pointer-events: none; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; 
+              color: #00ffcc; font-family: monospace; font-size: 3rem; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="score">0</span></div>
+    <div id="ui">0</div>
     <canvas id="gameCanvas"></canvas>
 
     <script src="features.js"></script>
-    
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        let gameData = {};
-        let sword = { x: 100, y: 300, vy: 0, angle: 0 };
-        let obstacles = [];
+        const scoreEl = document.getElementById('ui');
+        let gameConfig = {};
+        let sword = { x: 80, y: 0, vy: 0, angle: 0 };
+        let score = 0;
+        let isDead = false;
+        let frame = 0;
 
-        // LOAD EXTERNAL JSON
-        async function loadGame() {
-            try {
-                const response = await fetch('config.json');
-                gameData = await response.json();
-                start();
-            } catch (e) {
-                console.error("Run this on a server/GitHub Pages to load JSON!");
-                // Fallback if JSON fails
-                gameData = { settings: {gravity: 0.4, jump: -7.5, speed: 5} };
-                start();
-            }
-        }
-
-        function start() {
+        async function init() {
+            const res = await fetch('config.json');
+            gameConfig = await res.json();
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            sword.y = canvas.height / 2;
             loop();
         }
 
         function loop() {
-            // Background
             ctx.fillStyle = '#050505';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Update Physics using external settings
-            sword.vy += gameData.settings.gravity;
-            sword.y += sword.vy;
-            sword.angle = Math.atan2(sword.vy, 10);
+            if (!isDead) {
+                // Physics
+                sword.vy += gameConfig.settings.gravity;
+                sword.y += sword.vy;
+                sword.angle = Math.atan2(sword.vy, 12);
 
-            // Use features.js ability update
-            if (typeof Abilities !== 'undefined') Abilities.update(ctx, canvas);
+                // Pipe Logic from features.js
+                if (frame % 90 === 0) PipeManager.spawn(canvas, gameConfig);
+                isDead = PipeManager.update(canvas, gameConfig, sword, () => {
+                    score++;
+                    scoreEl.innerText = score;
+                });
+            } else {
+                ctx.fillStyle = "white";
+                ctx.fillText("CRITICAL FAILURE - TAP TO REBOOT", canvas.width/2 - 100, canvas.height/2);
+            }
 
-            // Draw Sword (Using skin from JSON)
+            PipeManager.draw(ctx, gameConfig, canvas);
+
+            // Draw Sword
             ctx.save();
             ctx.translate(sword.x, sword.y);
             ctx.rotate(sword.angle);
             ctx.shadowBlur = 20;
-            ctx.shadowColor = gameData.skins ? gameData.skins[0].glow : "#0ff";
+            ctx.shadowColor = "#00ffcc";
             ctx.fillStyle = "white";
             ctx.fillRect(0, -3, 60, 6);
             ctx.restore();
 
+            frame++;
             requestAnimationFrame(loop);
         }
 
         window.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            sword.vy = gameData.settings.jump;
-            if (typeof Abilities !== 'undefined') Abilities.triggerDash(sword);
+            if (isDead) {
+                isDead = false; score = 0; scoreEl.innerText = 0;
+                sword.y = canvas.height/2; sword.vy = 0;
+                PipeManager.pipes = [];
+            } else {
+                sword.vy = gameConfig.settings.jump;
+            }
         });
 
-        loadGame();
+        init();
     </script>
 </body>
 </html>
